@@ -322,7 +322,11 @@ window.__ModuleLoader__.load({
     // with the words underneath it.
     const NS = "settings.dsh-usage-dash-board";
     const DICTIONARIES = { zh: { nav: "用量统计" }, en: { nav: "Usage Statistics" } };
-    const inject = ["slots"];
+    // `locale` is named because this row reads `ctx.locale`: a service a
+    // plugin uses without declaring it is not guaranteed to be there when
+    // `apply` runs, and the entry then fails to activate — the whole browser
+    // half fails to load, which is far worse than an untranslated label.
+    const inject = ["slots", "locale"];
     function apply(ctx) {
       let t = null;
       const locale = ctx === null || ctx === void 0 ? void 0 : ctx.locale;

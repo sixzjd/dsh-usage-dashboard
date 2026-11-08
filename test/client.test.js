@@ -423,3 +423,22 @@ test('the settings row follows the host locale, not navigator.language', async (
   assert.doesNotMatch(code, /navigator\.language/,
     'navigator.language does not follow the host UI language and must not decide the label')
 })
+
+test('every service the client reads is declared in inject', async () => {
+  // A service read without being declared is not guaranteed to exist when
+  // `apply` runs, and the entry then fails to ACTIVATE — the whole browser half
+  // stops loading over an untranslated label. That is exactly how this module
+  // broke once: `ctx.locale` was read while `inject` still said only "slots".
+  const source = await readFile(clientPath, 'utf8')
+  const code = source.split('\n').filter((line) => !line.trim().startsWith('//')).join('\n')
+  const match = /const inject = \[([^\]]*)\]/.exec(code)
+  assert.ok(match, 'client.js declares an inject list')
+  const declared = match[1].split(',').map((entry) => entry.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
+  for (const service of ['ctx.slots', 'ctx.locale']) {
+    const used = code.includes(service)
+    const name = service.slice('ctx.'.length)
+    if (used) {
+      assert.ok(declared.includes(name), `${service} is read but "${name}" is not in inject (${declared.join(', ')})`)
+    }
+  }
+})

@@ -171,8 +171,11 @@ test('today and all are named ranges, and all really starts at the oldest record
   // ...and that degenerate one-day range must stay daily, or an empty machine
   // would render 全部时间 as 24 hourly buckets.
   assert.equal(scopeFromParams({ days: 'all', end: '2026-10-19' }).granularity, 'day')
-  // A day count still behaves exactly as before.
-  assert.equal(scopeFromParams({ days: '7', end: '2026-10-19' }).start, localDay(Date.now() - 6 * 86400000))
+  // A day count still behaves exactly as before. `end` is today rather than a
+  // literal date: the count is measured back from *now*, so a fixed `end` in the
+  // past makes start > end and the swap branch takes over — the assertion then
+  // starts failing on a calendar date rather than on a code change.
+  assert.equal(scopeFromParams({ days: '7', end: localDay(Date.now()) }).start, localDay(Date.now() - 6 * 86400000))
   // An explicit start outranks the named range.
   assert.equal(scopeFromParams({ days: 'all', start: '2026-09-01', end: '2026-10-19' }).start, '2026-09-01')
   // A one-day custom range is a single day, so it gets the hourly view too.

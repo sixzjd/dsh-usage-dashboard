@@ -362,3 +362,64 @@ test('numeric table headers right-align with the numbers under them', async () =
   // The time column is a label, not a number, so it must stay left-aligned.
   assert.equal(declaration('th', ['um-th-sort']).value, 'left', 'the 时间 header stays left-aligned')
 })
+
+// The settings row said "Usage Statistics" inside an otherwise Chinese sidebar.
+// The only input to that label was `navigator.language`, and the desktop shell
+// reports en-US while the settings page renders Chinese — so the row disagreed
+// with the page it sits in. The host's own `locale` service is the authority.
+// This drives the real module through `apply` rather than grepping the source,
+// because the bug was in which input the label consulted, not in its spelling.
+test('the settings row follows the host locale, not navigator.language', async () => {
+  const source = await readFile(clientPath, 'utf8')
+  // The module needs React and `window.__ModuleLoader__` to exist at load time.
+  const React = {
+    createElement: () => null,
+    Fragment: Symbol('Fragment'),
+    useState: (value) => [value, () => {}],
+    useEffect: () => {},
+    useMemo: (compute) => compute(),
+    useRef: () => ({ current: null }),
+    useCallback: (fn) => fn,
+  }
+  let loaded = null
+  const hostWindow = {
+    __ModuleLoader__: {
+      load: ({ id, factory }) => { loaded = { id, mod: factory((name) => (name === 'react' ? React : {})) } },
+    },
+  }
+  // navigator.language is deliberately en-US: the label must ignore it.
+  new Function('window', 'navigator', source)(hostWindow, { language: 'en-US' })
+  assert.ok(loaded, 'the module registers itself')
+  assert.equal(loaded.id, 'dsh-usage-dash-board')
+
+  const apply = (locale) => {
+    let options = null
+    const ctx = { slots: { inject: (name, fn) => fn(), register: (opts) => { options = opts; return {} } } }
+    if (locale) { ctx.locale = locale; ctx.effect = (fn) => fn() }
+    loaded.mod.apply(ctx)
+    return options
+  }
+
+  const dictionaries = []
+  const translated = apply({
+    register: (ns, dict) => dictionaries.push([ns, dict]),
+    bind: (ns) => (key) => `${ns}:${key}`,
+  })
+  assert.equal(translated.label(), 'settings.dsh-usage-dash-board:nav',
+    'the row asks the host locale for its name')
+  assert.equal(translated.locale, 'settings.dsh-usage-dash-board', 'the slot is told which namespace it reads')
+  assert.equal(dictionaries[0][0], 'settings.dsh-usage-dash-board', 'the namespace is registered')
+  assert.equal(dictionaries[0][1].zh.nav, '用量统计')
+  assert.equal(dictionaries[0][1].en.nav, 'Usage Statistics')
+
+  // A host without the service must still get a row, and that row has to agree
+  // with the Chinese body underneath it rather than guessing from the browser.
+  const fallback = apply(null)
+  assert.equal(fallback.label(), '用量统计', 'no locale service falls back to the panel language')
+  assert.equal(fallback.locale, undefined, 'no namespace is advertised when nothing is bound')
+  // Comments still name the old input (they explain why it was wrong), so the
+  // guard looks at executable lines only.
+  const code = source.split('\n').filter((line) => !line.trim().startsWith('//')).join('\n')
+  assert.doesNotMatch(code, /navigator\.language/,
+    'navigator.language does not follow the host UI language and must not decide the label')
+})

@@ -1,7 +1,7 @@
 {
   "name": "dsh-usage-dash-board",
   "displayName": "用量统计",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "用量统计 for DeepSeek Harness: daily token usage, request count, cache hit rate and estimated cost, shown as a native settings section.",
   "type": "module",
   "main": "lib/index.js",

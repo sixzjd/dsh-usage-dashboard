@@ -313,8 +313,36 @@ window.__ModuleLoader__.load({
           h("section", { className: "um-panel" }, h("nav", { className: "um-tabs", "aria-label": "用量明细" }, [["requests", "请求"], ["providers", "供应商"], ["models", "模型"], ["pricing", "定价"]].map(([key, label]) => h("button", { key, className: `um-tab${tab === key ? " active" : ""}`, type: "button", onClick: () => setTab(key), "aria-selected": tab === key, role: "tab" }, label))), tab === "pricing" ? h(PricingEditor, { prices: state.prices, setPrices: (prices) => setState((s) => ({ ...s, prices })), saving: state.saving, onSave: savePrices }) : rows?.length ? h("div", { className: "um-table-wrap" }, table) : h("div", { className: "um-empty" }, "当前筛选暂无数据")),
           detailKind ? h(Detail, { kind: detailKind, totals, scope: data?.scope, onClose: () => setDetailKind(null) }) : null)));
     }
+    // The host owns the UI language; `navigator.language` does not follow it.
+    // The desktop shell reports en-US while the settings page renders Chinese,
+    // which is exactly how a Chinese sidebar ended up with one English row.
+    // `ctx.locale` is the host's own answer, so the row now tracks the page it
+    // sits in. The panel body is written in Chinese, so the no-service fallback
+    // is Chinese too: a missing locale service must not make the row disagree
+    // with the words underneath it.
+    const NS = "settings.dsh-usage-dash-board";
+    const DICTIONARIES = { zh: { nav: "用量统计" }, en: { nav: "Usage Statistics" } };
     const inject = ["slots"];
-    function apply(ctx) { ctx.slots.inject("settings.section", () => ctx.slots.register({ name: "settings.section", id: "dsh-usage-dash-board", order: 65, label: () => (typeof navigator !== "undefined" && /^zh/i.test(navigator.language || "") ? "用量统计" : "Usage Statistics"), inject: () => ({}) }, UsageMeterSection)); }
+    function apply(ctx) {
+      let t = null;
+      const locale = ctx === null || ctx === void 0 ? void 0 : ctx.locale;
+      if (locale && typeof locale.register === "function" && typeof locale.bind === "function") {
+        const register = () => locale.register(NS, DICTIONARIES);
+        // A host without `effect` still gets the dictionary, just unowned.
+        if (typeof ctx.effect === "function") ctx.effect(register, "dsh-usage-dash-board: dictionaries");
+        else register();
+        t = locale.bind(NS);
+      }
+      const translated = typeof t === "function";
+      ctx.slots.inject("settings.section", () => ctx.slots.register({
+        name: "settings.section",
+        id: "dsh-usage-dash-board",
+        order: 65,
+        label: translated ? () => t("nav") : () => DICTIONARIES.zh.nav,
+        ...(translated ? { locale: NS } : {}),
+        inject: () => (translated ? { t } : {}),
+      }, UsageMeterSection));
+    }
     return { inject, apply };
   },
 });

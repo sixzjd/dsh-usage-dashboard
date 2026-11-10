@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.1
+
+### Fixed — the settings entry never appeared
+
+The client bundle registered itself as `dsh-usage-dashboard`, but the host keys
+its boot graph by PACKAGE name and asserts that a loaded bundle registered that
+exact id. The bundle loaded and then failed that assertion, so the settings
+section was never mounted — the host half worked (its routes answered) while
+nothing showed in the UI.
+
+Escaped 0.6.0 because the rename changed the package name to
+`@sixzjd/dsh-usage-dashboard` without changing the bundle id inside
+`client.js`. Every other working client plugin in the profile registers under
+its full package name; this one now does too, and a test pins the two together.
+
 ## 0.6.0
 
 ### Fixed — deleted sessions no longer erase their usage

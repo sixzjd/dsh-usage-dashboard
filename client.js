@@ -1,5 +1,10 @@
+// The bundle id MUST be the package name: the host composes its boot graph
+// keyed by package (`client-modules` passes the Loader row's package name as
+// the resource id) and the browser asserts that a loaded bundle registered
+// exactly that id. A bare plugin id here makes the bundle load but never
+// satisfy the manifest, so the settings entry silently never appears.
 window.__ModuleLoader__.load({
-  id: "dsh-usage-dashboard",
+  id: "@sixzjd/dsh-usage-dashboard",
   factory: (require) => {
     const React = require("react");
     const SUMMARY_PATH = "/api/dsh-usage-dashboard/summary";

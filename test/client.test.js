@@ -390,7 +390,10 @@ test('the settings row follows the host locale, not navigator.language', async (
   // navigator.language is deliberately en-US: the label must ignore it.
   new Function('window', 'navigator', source)(hostWindow, { language: 'en-US' })
   assert.ok(loaded, 'the module registers itself')
-  assert.equal(loaded.id, 'dsh-usage-dashboard')
+  // The id must be the PACKAGE name: the host keys its boot graph by package
+  // and asserts the loaded bundle registered that exact id, so a mismatch
+  // loads silently and the settings entry never appears.
+  assert.equal(loaded.id, '@sixzjd/dsh-usage-dashboard')
 
   const apply = (locale) => {
     let options = null

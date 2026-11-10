@@ -1,7 +1,7 @@
 {
   "name": "@sixzjd/dsh-usage-dashboard",
   "displayName": "用量统计",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Usage statistics for DeepSeek Harness: daily token usage, request count, cache hit rate and estimated cost as a native settings section, with durable history that survives deleted sessions.",
   "type": "module",
   "main": "lib/index.js",

@@ -1,4 +1,4 @@
-# dsh-usage-dash-board
+# dsh-usage-dashboard
 
 DeepSeek Harness 的本地用量统计插件：在**设置 → 用量统计**里查看 token 消耗、请求数、缓存命中率与按天趋势。
 
@@ -24,12 +24,22 @@ durable session log
       │  本地日历日分桶
       ▼
   日聚合 / 模型聚合 / 区间汇总 + 价格表计价
-      │  GET /api/dsh-usage-dash-board/summary
+      │  GET /api/dsh-usage-dashboard/summary
       ▼
   设置页原生分区（settings.section slot）
 ```
 
 一次调用只计一份用量：`assistant/message` 上的最终 usage 会**替换**同一 `turn:step` 的流式 `assistant/chunk`，而不是相加；全零的重放事件也不会覆盖已记录的真实数字。
+
+## 删除的会话仍计入历史
+
+数据源 `sessionQuery` 只能列出**磁盘上还存在的**会话日志。如果直接用它做统计，删掉一个对话，它花过的 token 就会从合计里凭空消失 —— 数字不会报错，只是安静地变小。
+
+所以插件把每次扫描到的调用用量另存一份（`storages/dsh_usage_dashboard_history.json`）。历史行的优先级低于活日志：**先载入历史、再折叠磁盘日志**，所以还存在的会话永远以日志为准，删掉的会话继续按存档计入。
+
+对在本功能上线**之前**就已删除的会话，插件会从宿主的会话投影缓存（`session_projcache`）里一次性回填 `tokenUsage` 总量。
+
+> **口径限制**：`tokenUsage` 每个会话只有一个总量，没有按天、按模型拆分。回填行只能锚定在会话创建时间，所以历史部分的**总量准确**，但它在按天图上的位置是近似的。
 
 ## 指标口径
 
@@ -63,13 +73,13 @@ token 桶遵循宿主 `@deepseek-ai/dsh-llm` 声明的 **DISJOINT** 语义：`in
 ## 安装
 
 ```bash
-dsh plugin --profile web add github:sixzjd/dsh-usage-dash-board
+dsh plugin --profile web add @sixzjd/dsh-usage-dashboard
 ```
 
-包尚未发布到 npm；发布后可改用：
+装好后可在 **设置 → 插件** 页直接检查并更新版本，无需再手敲命令。若想装 GitHub 上的开发版：
 
 ```bash
-dsh plugin --profile web add dsh-usage-dash-board
+dsh plugin --profile web add github:sixzjd/dsh-usage-dashboard
 ```
 
 安装后刷新浏览器页面即可。插件挂载在设置页的 `settings.section` 插槽，入口为「用量统计」（英文界面下为 Usage Statistics）。
@@ -77,7 +87,7 @@ dsh plugin --profile web add dsh-usage-dash-board
 ## 卸载
 
 ```bash
-dsh plugin --profile web remove dsh-usage-dash-board
+dsh plugin --profile web remove @sixzjd/dsh-usage-dashboard
 ```
 
 ## 内置价格
@@ -132,7 +142,7 @@ npm run check
 
 - 贴标签不会把某次调用挪到另一行，也不会改变任何统计数字
 - 两个账号的缓存对同一别名给出不同名字时，该别名被**丢弃**（宁可显示路由 id，也不显示错的模型名）
-- 缓存缺失、格式变更或不可读时**静默**退回路由 id：界面上不提示，看到的就只是 `qfmodel` 这类路由键。要确认是否生效，查 `GET /api/dsh-usage-dash-board/summary` 响应里的 `catalog.aliasCount`，为 0 即表示没解析到任何别名
+- 缓存缺失、格式变更或不可读时**静默**退回路由 id：界面上不提示，看到的就只是 `qfmodel` 这类路由键。要确认是否生效，查 `GET /api/dsh-usage-dashboard/summary` 响应里的 `catalog.aliasCount`，为 0 即表示没解析到任何别名
 
 ## 依赖的接缝
 
@@ -140,7 +150,7 @@ npm run check
 |---|---|
 | `ctx.sessionQuery` | 列出会话、读取已解压的事件流 |
 | `ctx.storage` (json backend, kv) | 持久化价格表到 `$DSH_HOME/storages` |
-| `ctx.webServer` | 注册 `/api/dsh-usage-dash-board/*` |
+| `ctx.webServer` | 注册 `/api/dsh-usage-dashboard/*` |
 | `ctx.timer` | 定时对账与实时去抖 |
 | `settings.section` slot | 挂载设置页分区 |
 | `@deepseek-ai/dsh-client-ui-primitives` 的 `Modal` | 指标详情浮层（缺失时降级为自绘浮层） |

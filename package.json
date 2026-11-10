@@ -1,8 +1,8 @@
 {
-  "name": "dsh-usage-dash-board",
+  "name": "@sixzjd/dsh-usage-dashboard",
   "displayName": "用量统计",
-  "version": "0.5.1",
-  "description": "用量统计 for DeepSeek Harness: daily token usage, request count, cache hit rate and estimated cost, shown as a native settings section.",
+  "version": "0.6.0",
+  "description": "Usage statistics for DeepSeek Harness: daily token usage, request count, cache hit rate and estimated cost as a native settings section, with durable history that survives deleted sessions.",
   "type": "module",
   "main": "lib/index.js",
   "license": "MIT",
@@ -23,6 +23,7 @@
     "locale",
     "cordis.patch.yml",
     "client.js",
+    "CHANGELOG.md",
     "README.md",
     "README.en.md",
     "LICENSE"
@@ -63,17 +64,20 @@
   "author": "sixzjd",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sixzjd/dsh-usage-dash-board.git"
+    "url": "git+https://github.com/sixzjd/dsh-usage-dashboard.git"
   },
   "bugs": {
-    "url": "https://github.com/sixzjd/dsh-usage-dash-board/issues"
+    "url": "https://github.com/sixzjd/dsh-usage-dashboard/issues"
   },
-  "homepage": "https://github.com/sixzjd/dsh-usage-dash-board#readme",
+  "homepage": "https://github.com/sixzjd/dsh-usage-dashboard#readme",
   "engines": {
     "dsh": ">=0.2.0-rc.2",
     "node": ">=22"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

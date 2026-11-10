@@ -1,4 +1,4 @@
-# dsh-usage-dash-board
+# dsh-usage-dashboard
 
 A local usage-analytics plugin for DeepSeek Harness: **Settings → Usage Statistics** shows token consumption, request count, cache hit rate and a daily trend.
 
@@ -26,12 +26,22 @@ durable session log
       │  bucket by local calendar day
       ▼
   daily / per-model aggregates + price-table costing
-      │  GET /api/dsh-usage-dash-board/summary
+      │  GET /api/dsh-usage-dashboard/summary
       ▼
   native settings section (settings.section slot)
 ```
 
 One call counts once: the final `assistant/message` usage **replaces** the streaming `assistant/chunk` for the same `turn:step` rather than adding to it, and an all-zero replay never overwrites a recorded real number.
+
+## Deleted sessions still count
+
+The data source, `sessionQuery`, can only list session logs that **still exist on disk**. Counting straight from it means deleting a conversation silently subtracts every token it ever spent — nothing errors, the totals just quietly shrink.
+
+So the plugin also stores per-call usage from each scan (`storages/dsh_usage_dashboard_history.json`). Retained rows rank BELOW the live log: history loads first and the disk logs fold afterwards, so a session that still exists is always measured from its own log, while a deleted one keeps counting from the archive.
+
+For sessions deleted **before** this feature shipped, the plugin runs a one-time backfill from the host's session projection cache (`session_projcache`) `tokenUsage` totals.
+
+> **Known limitation**: `tokenUsage` carries one whole-session total with no per-day or per-model split. A backfilled row is anchored at the session's creation time, so the **total is accurate** but its position on the daily chart is approximate.
 
 ## Metric definitions
 
@@ -65,10 +75,14 @@ The header stamps **when the numbers were captured** (`· 数据更新于 15:27:
 ## Install
 
 ```bash
-dsh plugin --profile web add github:sixzjd/dsh-usage-dash-board
+dsh plugin --profile web add @sixzjd/dsh-usage-dashboard
 ```
 
-Not yet published to npm; once it is, `dsh plugin --profile web add dsh-usage-dash-board` also works.
+Once installed, **Settings → Plugins** checks for and installs updates directly — no CLI needed. For the development build from GitHub:
+
+```bash
+dsh plugin --profile web add github:sixzjd/dsh-usage-dashboard
+```
 
 Refresh the page after installing. The entry mounts into the settings page's `settings.section` slot.
 
@@ -135,7 +149,7 @@ route id, so:
 - a missing, unreadable or reshaped cache falls back **silently** to the route
   id: the UI says nothing, and you simply see keys like `qfmodel`. To check
   whether resolution is working, read `catalog.aliasCount` in the
-  `GET /api/dsh-usage-dash-board/summary` response — 0 means nothing resolved
+  `GET /api/dsh-usage-dashboard/summary` response — 0 means nothing resolved
 
 ## Seams used
 
@@ -143,7 +157,7 @@ route id, so:
 |---|---|
 | `ctx.sessionQuery` | list sessions, read decoded event streams |
 | `ctx.storage` (json backend, kv) | persist the price table under `$DSH_HOME/storages` |
-| `ctx.webServer` | register `/api/dsh-usage-dash-board/*` |
+| `ctx.webServer` | register `/api/dsh-usage-dashboard/*` |
 | `ctx.timer` | periodic reconcile and live debouncing |
 | `settings.section` slot | mount the settings section |
 | `Modal` from `@deepseek-ai/dsh-client-ui-primitives` | metric detail dialog (falls back to a self-drawn overlay when absent) |

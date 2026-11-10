@@ -48,11 +48,11 @@ const localDay = (atMs) => {
 test('the summary route answers today with 24 hourly buckets', async () => {
   const { ctx, routes } = harness()
   apply(ctx)
-  const handler = routes.get('/api/dsh-usage-dash-board/summary')
+  const handler = routes.get('/api/dsh-usage-dashboard/summary')
   assert.ok(handler, 'the summary route is registered')
   await new Promise((resolve) => setTimeout(resolve, 20))
 
-  const res = call(handler, '/api/dsh-usage-dash-board/summary?days=today')
+  const res = call(handler, '/api/dsh-usage-dashboard/summary?days=today')
   assert.equal(res.statusCode, 200)
   const body = JSON.parse(res.body)
   assert.equal(body.ok, true)
@@ -65,13 +65,13 @@ test('the summary route answers today with 24 hourly buckets', async () => {
 
   // An empty machine answers "all time" as today. It must still be a valid day
   // range rather than the 30-day default, and daily rather than hourly.
-  const all = JSON.parse(call(handler, '/api/dsh-usage-dash-board/summary?days=all').body)
+  const all = JSON.parse(call(handler, '/api/dsh-usage-dashboard/summary?days=all').body)
   assert.equal(all.granularity, 'day')
   assert.equal(all.hours, null)
   assert.equal(all.scope.start, today)
 
   // The default view is untouched.
-  const d30 = JSON.parse(call(handler, '/api/dsh-usage-dash-board/summary').body)
+  const d30 = JSON.parse(call(handler, '/api/dsh-usage-dashboard/summary').body)
   assert.equal(d30.granularity, 'day')
   assert.equal(d30.scope.end, today)
   const start = new Date(Date.now() - 29 * 86400000)
@@ -81,7 +81,7 @@ test('the summary route answers today with 24 hourly buckets', async () => {
 test('the summary route still refuses a non-loopback caller', async () => {
   const { ctx, routes } = harness()
   apply(ctx)
-  const handler = routes.get('/api/dsh-usage-dash-board/summary')
+  const handler = routes.get('/api/dsh-usage-dashboard/summary')
   await new Promise((resolve) => setTimeout(resolve, 20))
 
   const res = {
@@ -92,7 +92,7 @@ test('the summary route still refuses a non-loopback caller', async () => {
   }
   handler({
     method: 'GET',
-    url: '/api/dsh-usage-dash-board/summary?days=today',
+    url: '/api/dsh-usage-dashboard/summary?days=today',
     headers: { host: 'evil.example' },
     socket: { remoteAddress: '10.0.0.7' },
   }, res)

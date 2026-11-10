@@ -390,7 +390,7 @@ test('the settings row follows the host locale, not navigator.language', async (
   // navigator.language is deliberately en-US: the label must ignore it.
   new Function('window', 'navigator', source)(hostWindow, { language: 'en-US' })
   assert.ok(loaded, 'the module registers itself')
-  assert.equal(loaded.id, 'dsh-usage-dash-board')
+  assert.equal(loaded.id, 'dsh-usage-dashboard')
 
   const apply = (locale) => {
     let options = null
@@ -405,10 +405,10 @@ test('the settings row follows the host locale, not navigator.language', async (
     register: (ns, dict) => dictionaries.push([ns, dict]),
     bind: (ns) => (key) => `${ns}:${key}`,
   })
-  assert.equal(translated.label(), 'settings.dsh-usage-dash-board:nav',
+  assert.equal(translated.label(), 'settings.dsh-usage-dashboard:nav',
     'the row asks the host locale for its name')
-  assert.equal(translated.locale, 'settings.dsh-usage-dash-board', 'the slot is told which namespace it reads')
-  assert.equal(dictionaries[0][0], 'settings.dsh-usage-dash-board', 'the namespace is registered')
+  assert.equal(translated.locale, 'settings.dsh-usage-dashboard', 'the slot is told which namespace it reads')
+  assert.equal(dictionaries[0][0], 'settings.dsh-usage-dashboard', 'the namespace is registered')
   assert.equal(dictionaries[0][1].zh.nav, '用量统计')
   assert.equal(dictionaries[0][1].en.nav, 'Usage Statistics')
 

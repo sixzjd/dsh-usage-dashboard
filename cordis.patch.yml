@@ -1,8 +1,11 @@
-# dsh-usage-dash-board bundle patch.
+# @sixzjd/dsh-usage-dashboard bundle patch.
 #
 # One row is enough: the host's client-module scan resolves a row's specifier to
 # a PACKAGE ROOT and reads `dsh.client` from package.json, so the browser half
 # loads from the same row that mounts the host half.
+#
+# `name` must be the published PACKAGE name, not the bare plugin id: the loader
+# resolves it as a module specifier, so a row naming anything else fails to load.
 - insert:
-    - id: dsh-usage-dash-board
-      name: dsh-usage-dash-board
+    - id: dsh-usage-dashboard
+      name: '@sixzjd/dsh-usage-dashboard'

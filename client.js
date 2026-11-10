@@ -1,9 +1,9 @@
 window.__ModuleLoader__.load({
-  id: "dsh-usage-dash-board",
+  id: "dsh-usage-dashboard",
   factory: (require) => {
     const React = require("react");
-    const SUMMARY_PATH = "/api/dsh-usage-dash-board/summary";
-    const PRICING_PATH = "/api/dsh-usage-dash-board/pricing";
+    const SUMMARY_PATH = "/api/dsh-usage-dashboard/summary";
+    const PRICING_PATH = "/api/dsh-usage-dashboard/pricing";
     const h = React.createElement;
     // Native dialog chrome. The host's Modal portals to <body>, centres in the
     // VIEWPORT, and owns the mask, Escape, the close button and focus return —
@@ -285,7 +285,7 @@ window.__ModuleLoader__.load({
       const modelLabels = Object.fromEntries((data?.models || [])
         .filter((x) => x.displayName && x.modelId)
         .map((x) => [x.modelId, x.displayName]))
-      const savePrices = async () => { setState((s) => ({ ...s, saving: true, error: null })); try { const response = await fetch(PRICING_PATH, { method: "POST", headers: { "content-type": "application/json", "x-dsh-usage-dash-board-token": state.priceToken }, body: JSON.stringify({ prices: state.prices }) }); if (!response.ok) throw new Error("价格配置保存失败"); await load(true); setState((s) => ({ ...s, saving: false })); } catch (error) { setState((s) => ({ ...s, saving: false, error: error instanceof Error ? error.message : "保存失败" })); } };
+      const savePrices = async () => { setState((s) => ({ ...s, saving: true, error: null })); try { const response = await fetch(PRICING_PATH, { method: "POST", headers: { "content-type": "application/json", "x-dsh-usage-dashboard-token": state.priceToken }, body: JSON.stringify({ prices: state.prices }) }); if (!response.ok) throw new Error("价格配置保存失败"); await load(true); setState((s) => ({ ...s, saving: false })); } catch (error) { setState((s) => ({ ...s, saving: false, error: error instanceof Error ? error.message : "保存失败" })); } };
       const update = (key, value) => setFilters((f) => ({ ...f, [key]: value })), rows = tab === "providers" ? data?.providers : tab === "models" ? data?.models : data?.requests;
       const sortRows = (list, get) => [...(list || [])].sort((a, b) => (sortDesc ? -1 : 1) * ((get(a) ?? 0) - (get(b) ?? 0)));
       // The request log's first cell. Two lines, because the one-line stamp
@@ -320,7 +320,7 @@ window.__ModuleLoader__.load({
     // sits in. The panel body is written in Chinese, so the no-service fallback
     // is Chinese too: a missing locale service must not make the row disagree
     // with the words underneath it.
-    const NS = "settings.dsh-usage-dash-board";
+    const NS = "settings.dsh-usage-dashboard";
     const DICTIONARIES = { zh: { nav: "用量统计" }, en: { nav: "Usage Statistics" } };
     // `locale` is named because this row reads `ctx.locale`: a service a
     // plugin uses without declaring it is not guaranteed to be there when
@@ -333,14 +333,14 @@ window.__ModuleLoader__.load({
       if (locale && typeof locale.register === "function" && typeof locale.bind === "function") {
         const register = () => locale.register(NS, DICTIONARIES);
         // A host without `effect` still gets the dictionary, just unowned.
-        if (typeof ctx.effect === "function") ctx.effect(register, "dsh-usage-dash-board: dictionaries");
+        if (typeof ctx.effect === "function") ctx.effect(register, "dsh-usage-dashboard: dictionaries");
         else register();
         t = locale.bind(NS);
       }
       const translated = typeof t === "function";
       ctx.slots.inject("settings.section", () => ctx.slots.register({
         name: "settings.section",
-        id: "dsh-usage-dash-board",
+        id: "dsh-usage-dashboard",
         order: 65,
         label: translated ? () => t("nav") : () => DICTIONARIES.zh.nav,
         ...(translated ? { locale: NS } : {}),

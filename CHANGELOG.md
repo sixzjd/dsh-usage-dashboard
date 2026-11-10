@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.2
+
+### Fixed — history is read, not re-summed
+
+Recovering a deleted session's usage from the projection checkpoint ran on
+every start and re-admitted every session the checkpoints still listed. That
+made the panel re-sum the past instead of reading what it had already saved,
+and any store that also held a per-day split for the same session counted that
+usage twice.
+
+A session is now admitted at most once: `backfillRows` skips whatever the
+durable store already records. Saved history stays history.
+
 ## 0.6.1
 
 ### Fixed — the settings entry never appeared

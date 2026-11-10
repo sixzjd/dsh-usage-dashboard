@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.6.2
+## 0.6.3
+
+### Supersedes the first 0.6.2
+
+The version published as 0.6.2 imported another application's database to
+recover per-day splits. That is not this plugin's job — it made the package read
+a file it does not own — and it is gone. 0.6.3 reads only this machine's own
+session logs and projection checkpoints.
 
 ### Fixed — history is read, not re-summed
 

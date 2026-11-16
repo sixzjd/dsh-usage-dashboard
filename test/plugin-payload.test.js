@@ -249,3 +249,23 @@ test('no limit means the full list, for callers that need every row', () => {
   })
   assert.equal(result.requests.length, 3, 'an omitted limit keeps the old behaviour')
 })
+
+test('the row cap returns the newest requests, not the oldest ones', () => {
+  // The table sorts newest-first and takes 100. Capping must therefore keep
+  // the LAST 100 rows by time: keeping the first 100 makes the table show
+  // month-old traffic even when today has thousands of requests.
+  const snapshot = {
+    calls: 5,
+    requests: Array.from({ length: 5 }, (_, i) =>
+      request(`s1:${i + 1}:1`, `2026-10-0${i + 1}`, 'alpha', 'model-a', i + 1, '1')),
+  }
+  const result = filterSnapshot(snapshot, {
+    start: '2026-10-01', end: '2026-10-31', providers: [], models: [], limit: 2,
+  })
+  assert.deepEqual(result.requests.map((r) => r.id), ['s1:4:1', 's1:5:1'],
+    'the newest rows survive the cap')
+
+  // Aggregates still cover every row.
+  assert.equal(result.totals.calls, 5)
+  assert.equal(result.totals.realTokens, 15)
+})

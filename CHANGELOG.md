@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.6
+
+### Fixed — the capped row list kept the OLDEST rows
+
+0.6.5 capped the detail list to 100 rows to avoid shipping 27k rows (13 MB)
+for a table that renders 100. It sliced the FRONT of the time-ascending list,
+so a 30-day window showed 10/18–10/19 — the oldest edge of the range — while
+today's rows were dropped by the cap before the browser could sort them.
+
+The cap now keeps the TAIL (`slice(-limit)`), i.e. the newest 100 rows in the
+selected range. All aggregates are still computed from the full list, so the
+numbers above the table stay exact.
+
 ## 0.6.4
 
 ### Fixed — the filter dropdowns were unreadable in Windows dark mode

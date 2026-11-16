@@ -34,6 +34,7 @@ test('normalizes inverted dates and parses comma-separated filters', () => {
     granularity: 'day',
     providers: ['alpha', 'beta'],
     models: ['model-a', 'model-b'],
+    limit: 100,
   })
 })
 
@@ -158,7 +159,7 @@ const localDay = (atMs) => {
 test('today and all are named ranges, and all really starts at the oldest record', () => {
   const today = localDay(Date.now())
   assert.deepEqual(scopeFromParams({ days: 'today' }), {
-    start: today, end: today, granularity: 'hour', providers: [], models: [],
+    start: today, end: today, granularity: 'hour', providers: [], models: [], limit: 100,
   })
   assert.equal(
     scopeFromParams({ days: 'all', end: '2026-10-19' }, { earliest: Date.parse('2026-08-01T09:00:00') }).start,
@@ -212,4 +213,39 @@ test('a single-day scope is bucketed by hour and asks the chart for hours', () =
   const wide = filterSnapshot({ calls: 3, requests: rows }, { ...scope, start: '2026-10-18' })
   assert.equal(wide.granularity, 'day')
   assert.equal(wide.hours, null)
+})
+
+test('a request cap trims the row list without changing any aggregate', () => {
+  // The table renders at most 100 rows, but the payload used to ship every
+  // request ever seen: 27k rows / 13 MB per panel load, of which 99.6% was
+  // thrown away client-side. Capping rows at the source keeps the response
+  // small while every number above the table stays exact.
+  const snapshot = {
+    calls: 5,
+    realTokens: 500,
+    requests: Array.from({ length: 5 }, (_, i) =>
+      request(`s1:${i + 1}:1`, '2026-10-01', 'alpha', 'model-a', 100, '1')),
+  }
+  const result = filterSnapshot(snapshot, {
+    start: '2026-10-01', end: '2026-10-01', providers: [], models: [], limit: 2,
+  })
+
+  assert.equal(result.requests.length, 2, 'only the visible slice is returned')
+  assert.equal(result.totals.calls, 5, 'the request count still covers all rows')
+  assert.equal(result.totals.realTokens, 500, 'the token total still covers all rows')
+  assert.equal(result.totals.cost.total, '5', 'the cost total still covers all rows')
+  assert.equal(result.days[0].calls, 5, 'the chart day still covers all rows')
+  assert.equal(result.models[0].calls, 5, 'the model table still covers all rows')
+})
+
+test('no limit means the full list, for callers that need every row', () => {
+  const snapshot = {
+    calls: 3,
+    requests: Array.from({ length: 3 }, (_, i) =>
+      request(`s1:${i + 1}:1`, '2026-10-01', 'alpha', 'model-a', 100, '1')),
+  }
+  const result = filterSnapshot(snapshot, {
+    start: '2026-10-01', end: '2026-10-01', providers: [], models: [],
+  })
+  assert.equal(result.requests.length, 3, 'an omitted limit keeps the old behaviour')
 })

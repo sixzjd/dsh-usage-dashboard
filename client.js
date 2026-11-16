@@ -541,7 +541,42 @@ window.__ModuleLoader__.load({
       const customDateIncomplete = filters.days === "" && (!filters.start || !filters.end);
       const dateValidation = customDateIncomplete ? "请选择开始和结束日期后再加载。" : "";
       const query = React.useMemo(() => { const p = new URLSearchParams(); if (filters.start) p.set("start", filters.start); if (filters.end) p.set("end", filters.end); if (filters.days) p.set("days", filters.days); if (filters.provider) p.set("provider", filters.provider); if (filters.model) p.set("model", filters.model); return p.toString(); }, [filters]);
-      const load = React.useCallback(async (withPricing) => { if (filters.days === "" && (!filters.start || !filters.end)) return; const sequence = ++requestSequence.current; abortRef.current?.abort(); const controller = new AbortController(); abortRef.current = controller; setState((s) => ({ ...s, loading: true, error: null })); try { const response = await fetch(`${SUMMARY_PATH}?${query}`, { headers: { accept: "application/json" }, signal: controller.signal }); if (!response.ok) throw new Error("用量统计暂不可用"); const summary = await response.json(); if (summary?.ok !== true) throw new Error("用量统计返回了无效数据"); let prices = state.prices, priceToken = state.priceToken; if (withPricing || !priceToken) { const pricingResponse = await fetch(PRICING_PATH, { headers: { accept: "application/json" }, signal: controller.signal }); if (!pricingResponse.ok) throw new Error("价格配置暂不可用"); const pricing = await pricingResponse.json(); if (pricing?.ok !== true) throw new Error("价格配置返回了无效数据"); const configured = Array.isArray(pricing.prices) ? pricing.prices : [], known = new Set(configured.map((price) => price.modelId)), detected = Array.isArray(pricing.models) ? pricing.models : []; prices = configured.concat(detected.filter((model) => !known.has(model.modelId)).map((model) => ({ modelId: model.modelId, label: model.displayName || model.modelId, provider: model.provider, offPeak: {} }))); priceToken = pricing.token; } if (sequence !== requestSequence.current) return; setState((s) => ({ ...s, loading: false, error: null, data: summary, prices, priceToken })); } catch (error) { if (error?.name === "AbortError" || sequence !== requestSequence.current) return; setState((s) => ({ ...s, loading: false, error: error instanceof Error ? error.message : "加载失败" })); } }, [filters.days, filters.start, filters.end, query, state.prices, state.priceToken]);
+      const load = React.useCallback(async (withPricing) => {
+        if (filters.days === "" && (!filters.start || !filters.end)) return;
+        const sequence = ++requestSequence.current;
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        setState((s) => ({ ...s, loading: true, error: null }));
+        try {
+          // These two reads are independent: pricing is needed for the editor
+          // and the write token, not for the numbers. Issuing them together
+          // removes one full round-trip from the first paint.
+          const [summaryResponse, pricingResponse] = await Promise.all([
+            fetch(`${SUMMARY_PATH}?${query}`, { headers: { accept: "application/json" }, signal: controller.signal }),
+            (withPricing || !state.priceToken)
+              ? fetch(PRICING_PATH, { headers: { accept: "application/json" }, signal: controller.signal })
+              : Promise.resolve(null),
+          ]);
+          if (!summaryResponse.ok) throw new Error("用量统计暂不可用");
+          const summary = await summaryResponse.json();
+          if (summary?.ok !== true) throw new Error("用量统计返回了无效数据");
+          let prices = state.prices, priceToken = state.priceToken;
+          if (pricingResponse !== null) {
+            if (!pricingResponse.ok) throw new Error("价格配置暂不可用");
+            const pricing = await pricingResponse.json();
+            if (pricing?.ok !== true) throw new Error("价格配置返回了无效数据");
+            const configured = Array.isArray(pricing.prices) ? pricing.prices : [], known = new Set(configured.map((price) => price.modelId)), detected = Array.isArray(pricing.models) ? pricing.models : [];
+            prices = configured.concat(detected.filter((model) => !known.has(model.modelId)).map((model) => ({ modelId: model.modelId, label: model.displayName || model.modelId, provider: model.provider, offPeak: {} })));
+            priceToken = pricing.token;
+          }
+          if (sequence !== requestSequence.current) return;
+          setState((s) => ({ ...s, loading: false, error: null, data: summary, prices, priceToken }));
+        } catch (error) {
+          if (error?.name === "AbortError" || sequence !== requestSequence.current) return;
+          setState((s) => ({ ...s, loading: false, error: error instanceof Error ? error.message : "加载失败" }));
+        }
+      }, [filters.days, filters.start, filters.end, query, state.prices, state.priceToken]);
       React.useEffect(() => { if (customDateIncomplete) { abortRef.current?.abort(); setState((s) => ({ ...s, loading: false })); return; } void load(!state.priceToken); }, [query, customDateIncomplete]);
       React.useEffect(() => { if (!detailKind || Modal !== null) return undefined; const onKeyDown = (event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); setDetailKind(null); } }; document.addEventListener("keydown", onKeyDown, true); return () => document.removeEventListener("keydown", onKeyDown, true); }, [detailKind]);
       const data = state.data, totals = data?.totals || {}, providers = [...new Set((data?.providers || []).map((x) => x.provider || "unknown").concat(filters.provider || []))], models = [...new Set((data?.models || []).map((x) => x.modelId || "unknown").concat(filters.model || []))];

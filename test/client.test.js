@@ -533,3 +533,22 @@ test('the list handles keys once, not once per focused element', async () => {
   assert.ok(bindings <= 2,
     `the key handler is declared once and attached once (found ${bindings} mentions)`)
 })
+
+test('summary and pricing are fetched in parallel, not back to back', async () => {
+  const source = await readFile(clientPath, 'utf8')
+  const start = source.indexOf('const load = React.useCallback')
+  const body = source.slice(start, source.indexOf('}, [filters.days', start))
+
+  // The old code awaited the 13 MB summary before even starting the pricing
+  // request, so the two round-trips stacked. Independent reads must be issued
+  // together with Promise.all so the panel's first paint waits for the slower
+  // one only once.
+  assert.match(body, /Promise\.all/,
+    'independent endpoint reads are issued together')
+
+  const allAt = body.indexOf('Promise.all')
+  const summaryAt = body.indexOf('SUMMARY_PATH')
+  const pricingAt = body.indexOf('PRICING_PATH')
+  assert.ok(allAt < summaryAt && allAt < pricingAt,
+    'both fetches are declared inside the parallel group')
+})

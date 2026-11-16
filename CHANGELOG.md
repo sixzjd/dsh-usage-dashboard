@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.6.4
+
+### Fixed — the filter dropdowns were unreadable in Windows dark mode
+
+A `<select>` popup belongs to the operating system, not to the page. On Windows
+the popup kept the system's white background while its rows inherited this
+panel's dark-theme near-white text, so on a dark desktop the row list rendered
+as light grey on white. `color-scheme` alone does not fix it on every Chromium
+build, and `var()` tokens are dropped by a popup the OS paints.
+
+The two filter dropdowns are now drawn by the panel itself: a listbox styled
+with the same tokens as the rest of the interface, identical on macOS, Windows
+and Linux. It keeps what the native control gave for free — listbox and option
+roles, an announced expanded state, arrow/Home/End navigation, Enter to choose,
+Escape or an outside click to dismiss.
+
+No native `<select>` remains, so this class of platform theme bug cannot come
+back through these filters.
+
+## 0.7.0
+
+### Changed — model-name resolution is no longer tied to one plugin
+
+Name resolution used to read one provider plugin's cache at a hardcoded path, so
+it only ever helped users of that plugin. It now discovers catalogs by
+**directory shape** across every provider plugin in every profile, and accepts
+both layouts in the wild: a top-level `{models:[…]}` and per-account
+`{entries:{…models:[…]}}`.
+
+Measured on a live profile: alias coverage went from 15 names (1 plugin) to
+**97 names (3 plugins)**, which is what finally labels models like
+`deepseek-v4.1-flash` on machines that do not run the first plugin at all.
+
+The README no longer presents any of this as one vendor's quirk: the limitation,
+the credit-billing caveat and the private-cache disclosure are all stated in
+provider-neutral terms.
+
+### Added — a Settings / Sidebar placement choice
+
+The panel's entry can now live in the sidebar as a first-class navigation row
+(with a main-region panel behind it), in Settings as before, or in both. The
+choice is saved server-side beside the price table and applies immediately —
+choosing a location mounts or unmounts the corresponding slots without a reload.
+
+Settings remains the default: the panel reports across all sessions, so it does
+not claim a permanent seat in the app chrome next to actions that change
+something unless the user asks for one.
+
 ## 0.6.3
 
 ### Supersedes the first 0.6.2

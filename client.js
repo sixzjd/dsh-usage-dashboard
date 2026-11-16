@@ -9,6 +9,10 @@ window.__ModuleLoader__.load({
     const React = require("react");
     const SUMMARY_PATH = "/api/dsh-usage-dashboard/summary";
     const PRICING_PATH = "/api/dsh-usage-dashboard/pricing";
+    const SETTINGS_PATH = "/api/dsh-usage-dashboard/settings";
+    // Where the entry lives. `settings` is the default: the panel is a report,
+    // so it does not need a seat in the app chrome unless the user asks for one.
+    const ENTRY_LOCATIONS = [["settings", "仅设置"], ["sidebar", "仅侧栏"], ["both", "两处显示"]];
     const h = React.createElement;
     // Native dialog chrome. The host's Modal portals to <body>, centres in the
     // VIEWPORT, and owns the mask, Escape, the close button and focus return —
@@ -19,10 +23,30 @@ window.__ModuleLoader__.load({
     let Modal = null;
     try { Modal = require("@deepseek-ai/dsh-client-ui-primitives").Modal ?? null; } catch { Modal = null; }
     const css = `
-      .um-root{position:relative;color:var(--dsw-alias-label-primary,#25252a);background:var(--dsw-alias-bg-base,#f7f7f8);font:13px/1.45 var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif);padding:24px;max-width:1180px;margin:0 auto;min-width:0}
+      .um-shell{padding:24px;min-width:0;box-sizing:border-box}
+      .um-shell-main{display:flex;flex-direction:column;height:100%;min-height:0;overflow-y:auto;background:var(--dsw-alias-bg-base,#f7f7f8)}
+      .um-inner{max-width:1180px;margin:0 auto;min-width:0}
+      .um-config-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:0.5px solid var(--dsw-alias-border-l2,#dedee3)}
+      .um-config-label{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;text-align:left}
+      .um-config-title{font-size:13px;font-weight:500;line-height:20px;color:var(--dsw-alias-label-primary,#25252a)}
+      .um-config-desc{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#74747c)}
+      .um-root{position:relative;color:var(--dsw-alias-label-primary,#25252a);font:13px/1.45 var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif);min-width:0;box-sizing:border-box;color-scheme:light dark}
       .um-root *{box-sizing:border-box}.um-head,.um-row,.um-chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.um-head{margin-bottom:20px}.um-title{font-size:22px;font-weight:650;letter-spacing:-.3px}.um-muted,.um-label{color:var(--dsw-alias-label-secondary,#74747c)}.um-muted{margin-top:3px}
-.um-cell-sub{display:block;margin-top:2px;color:var(--dsw-alias-label-tertiary,#9a9aa3);font-size:11px;font-weight:400;white-space:normal}.um-actions,.um-segment,.um-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.um-content{position:relative;min-width:0}.um-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;margin-bottom:16px}.um-filter{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}.um-filter>.um-label{display:block}.um-validation{margin:-8px 0 16px;color:var(--dsw-alias-state-warn-primary);font-size:12px}.um-button,.um-select,.um-input{height:32px;width:100%;min-width:0;padding:0 10px;color:var(--dsw-alias-label-primary,#25252a);background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l4,#d4d6db);border-radius:var(--dsw-radius-md,8px);font:inherit;font-size:14px;line-height:22px;transition:background .15s,border-color .15s,box-shadow .15s}.um-button{width:auto}.um-select{box-sizing:border-box;height:36px;padding:0 14px;padding-right:38px;border:none;border-radius:var(--dsw-radius-md);background-color:var(--dsw-alias-bg-module-platform,#f5f6f7);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;line-height:22px;width:auto;max-width:100%;appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2381858C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-position:right 14px center;background-repeat:no-repeat;background-size:12px 12px;transition:background-color .15s ease}.um-select:hover{background-color:var(--dsw-alias-interactive-bg-hover,#2631480f)}.um-button:hover,.um-input:hover{background-color:var(--dsw-alias-interactive-bg-hover,#f1f1f3)}.um-button:active{background-color:var(--dsw-alias-interactive-bg-active,#e8e8eb)}.um-input:focus-visible{outline:none;border-color:var(--dsw-alias-state-business-primary)}.um-select:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.um-button:focus-visible,.um-tab:focus-visible,.um-segment button:focus-visible,.um-card:focus-visible{outline:var(--dsw-focus-ring-width,2px) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.um-button[disabled]{opacity:.55;cursor:wait}
-.um-select:disabled{color:var(--dsw-alias-label-tertiary,#9a9aa3);cursor:default}.um-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}.um-card,.um-panel{border:1px solid var(--dsw-alias-border-l2,#dedee3);border-radius:var(--dsw-radius-panel,12px);background:var(--dsw-alias-bg-layer-1,#fff)}.um-card{width:100%;min-height:83px;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:20px 24px;border:.5px solid var(--dsw-alias-border-l2,#dedee3);border-radius:20px;background:transparent;box-shadow:none;cursor:pointer;text-align:left;color:inherit;font:inherit;transition:background .15s,border-color .15s}.um-card:hover{background:var(--dsw-alias-interactive-bg-hover,#f1f1f3);border-color:var(--dsw-alias-border-l1,#c9c9d0)}.um-card-label{color:var(--dsw-alias-label-secondary,#74747c);font-size:13px}.um-value{font-size:23px;font-weight:650;line-height:1.2;margin-top:6px;letter-spacing:-.4px;white-space:nowrap}.um-panel{padding:16px;margin-bottom:16px;min-width:0}.um-chart-head{align-items:center;margin-bottom:12px}.um-panel-title{font-weight:600}.um-segment{padding:3px;border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-interactive-bg-hover,#f1f1f3);gap:2px}.um-segment button{border:0;background:transparent;color:var(--dsw-alias-label-secondary,#74747c);border-radius:var(--dsw-radius-sm,6px);padding:5px 10px;font:inherit;cursor:pointer}.um-segment button:hover,.um-segment button.active{background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;box-shadow:var(--dsw-elevation-soft,0 1px 2px rgba(0,0,0,.04))}.um-bars-wrap{position:relative;display:flex;flex-direction:column;gap:6px;min-height:190px}.um-bars{display:flex;flex-direction:column;gap:4px;flex:1;min-height:0}
+.um-cell-sub{display:block;margin-top:2px;color:var(--dsw-alias-label-tertiary,#9a9aa3);font-size:11px;font-weight:400;white-space:normal}.um-actions,.um-segment,.um-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.um-content{position:relative;min-width:0}.um-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;margin-bottom:16px}.um-filter{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}.um-filter>.um-label{display:block}.um-validation{margin:-8px 0 16px;color:var(--dsw-alias-state-warn-primary);font-size:12px}.um-button,.um-select,.um-input{height:32px;width:100%;min-width:0;padding:0 10px;color:var(--dsw-alias-label-primary,#25252a);background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l4,#d4d6db);border-radius:var(--dsw-radius-md,8px);font:inherit;font-size:14px;line-height:22px;transition:background .15s,border-color .15s,box-shadow .15s}.um-button{width:auto}.um-dd{position:relative;min-width:0;max-width:100%}
+.um-dd-trigger{box-sizing:border-box;display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:none;border-radius:var(--dsw-radius-md,8px);background-color:var(--dsw-alias-bg-module-platform,#f5f6f7);color:var(--dsw-alias-label-primary,#25252a);font:inherit;font-size:14px;line-height:22px;cursor:pointer;max-width:100%;transition:background-color .15s ease}
+.um-dd-trigger:hover{background-color:var(--dsw-alias-interactive-bg-hover,#f1f1f3)}
+.um-dd-trigger:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#4176e6);outline-offset:1px}
+.um-dd-trigger[disabled]{color:var(--dsw-alias-label-tertiary,#9a9aa3);cursor:default}
+.um-dd-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.um-dd-caret{margin-left:auto;flex:none;color:var(--dsw-alias-label-secondary,#74747c);transition:transform .15s ease}
+.um-dd-open .um-dd-caret{transform:rotate(180deg)}
+.um-dd-panel{position:absolute;z-index:40;top:calc(100% + 6px);left:0;min-width:100%;max-height:320px;overflow-y:auto;padding:6px;border-radius:var(--dsw-radius-panel,12px);background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:0 8px 24px rgba(0,0,0,.14);border:.5px solid var(--dsw-alias-border-l2,#dedee3)}
+.um-dd-option{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--dsw-radius-sm,6px);color:var(--dsw-alias-label-primary,#25252a);font-size:14px;line-height:22px;cursor:pointer;white-space:nowrap}
+.um-dd-option-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.um-dd-active{background:var(--dsw-alias-interactive-bg-hover,#f1f1f3)}
+.um-dd-selected{font-weight:500}
+.um-dd-check{margin-left:auto;flex:none;color:var(--dsw-alias-label-primary,#25252a)}
+.um-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}.um-card,.um-panel{border:1px solid var(--dsw-alias-border-l2,#dedee3);border-radius:var(--dsw-radius-panel,12px);background:var(--dsw-alias-bg-layer-1,#fff)}.um-card{width:100%;min-height:83px;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:20px 24px;border:.5px solid var(--dsw-alias-border-l2,#dedee3);border-radius:20px;background:transparent;box-shadow:none;cursor:pointer;text-align:left;color:inherit;font:inherit;transition:background .15s,border-color .15s}.um-card:hover{background:var(--dsw-alias-interactive-bg-hover,#f1f1f3);border-color:var(--dsw-alias-border-l1,#c9c9d0)}.um-card-label{color:var(--dsw-alias-label-secondary,#74747c);font-size:13px}.um-value{font-size:23px;font-weight:650;line-height:1.2;margin-top:6px;letter-spacing:-.4px;white-space:nowrap}.um-panel{padding:16px;margin-bottom:16px;min-width:0}.um-chart-head{align-items:center;margin-bottom:12px}.um-panel-title{font-weight:600}.um-segment{padding:3px;border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-interactive-bg-hover,#f1f1f3);gap:2px}.um-segment button{border:0;background:transparent;color:var(--dsw-alias-label-secondary,#74747c);border-radius:var(--dsw-radius-sm,6px);padding:5px 10px;font:inherit;cursor:pointer}.um-segment button:hover,.um-segment button.active{background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;box-shadow:var(--dsw-elevation-soft,0 1px 2px rgba(0,0,0,.04))}.um-bars-wrap{position:relative;display:flex;flex-direction:column;gap:6px;min-height:190px}.um-bars{display:flex;flex-direction:column;gap:4px;flex:1;min-height:0}
 .um-bars-body{display:flex;align-items:stretch;gap:8px}
 .um-bars-axis,.um-bars-x{--um-axis-w:42px}.um-bars-axis{flex:none;width:var(--um-axis-w);height:150px;position:relative;color:var(--dsw-alias-label-tertiary,#9a9aa3);font-size:11px;line-height:1}
 .um-bars-axis span{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap}
@@ -65,7 +89,117 @@ window.__ModuleLoader__.load({
     // still carries the route id, which is what the backend groups and
     // filters on. Showing a name the server cannot match would silently
     // return nothing.
-    const selectOptions = (label, values, current, onChange, labels) => h("div", { className: "um-filter" }, h("span", { className: "um-label" }, label), h("select", { className: "um-select", value: current, onChange: (e) => onChange(e.target.value), "aria-label": label }, h("option", { value: "" }, `全部${label}`), ...values.map((v) => h("option", { key: v, value: v }, (labels && labels[v]) || v))));
+    /**
+     * A dropdown the panel draws itself.
+     *
+     * A native `<select>` was the one control that could not follow the app
+     * theme: its popup belongs to the operating system, so on Windows a dark
+     * theme's near-white rows landed on a white popup and disappeared. No CSS
+     * reaches that popup on every Chromium build, so the panel ships its own
+     * listbox — same markup everywhere, styled with the panel's own tokens.
+     *
+     * It keeps the affordances the native control gave for free: a listbox
+     * role, an announced expanded state, arrow/Home/End navigation, Enter to
+     * choose, and Escape or an outside click to dismiss.
+     */
+    function Dropdown({ label, value, options, onChange, disabled }) {
+      const [open, setOpen] = React.useState(false);
+      // Stable per-instance id so the trigger can point at the active row with
+      // aria-activedescendant, which keeps DOM focus on the trigger — that is
+      // what lets one keydown handler serve the whole listbox.
+      const listId = React.useMemo(() => `um-dd-${Math.random().toString(36).slice(2, 9)}`, []);
+      const [active, setActive] = React.useState(-1);
+      const rootRef = React.useRef(null);
+      const listRef = React.useRef(null);
+      const triggerRef = React.useRef(null);
+      const selected = options.findIndex((option) => option.value === value);
+      const current = selected >= 0 ? options[selected] : options[0];
+
+      React.useEffect(() => {
+        if (!open) return;
+        setActive(selected >= 0 ? selected : 0);
+        const onPointerDown = (event) => {
+          if (rootRef.current !== null && !rootRef.current.contains(event.target)) setOpen(false);
+        };
+        document.addEventListener("pointerdown", onPointerDown, true);
+        return () => document.removeEventListener("pointerdown", onPointerDown, true);
+      }, [open, selected]);
+
+      const choose = (index) => {
+        const option = options[index];
+        if (option === undefined) return;
+        if (option.value !== value) onChange(option.value);
+        setOpen(false);
+        triggerRef.current?.focus?.();
+      };
+
+      const onKeyDown = (event) => {
+        if (event.key === "Escape") { setOpen(false); triggerRef.current?.focus?.(); return }
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          if (!open) { setOpen(true); return }
+          // An empty list has no row to move to; `% 0` would yield NaN and leave
+          // the highlight stuck at NaN for every later keypress.
+          if (options.length === 0) return;
+          const step = event.key === "ArrowDown" ? 1 : -1;
+          setActive((index) => (index + step + options.length) % options.length);
+          return;
+        }
+        if (event.key === "Home") { if (open) { event.preventDefault(); setActive(0) } return }
+        if (event.key === "End") { if (open && options.length > 0) { event.preventDefault(); setActive(options.length - 1) } return }
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          if (open) choose(active); else setOpen(true);
+        }
+      };
+
+      React.useEffect(() => {
+        if (!open || active < 0 || listRef.current === null) return;
+        const row = listRef.current.querySelector(`[data-index="${active}"]`);
+        row?.scrollIntoView?.({ block: "nearest" });
+      }, [open, active]);
+
+      return h("div", { className: "um-dd", ref: rootRef },
+        h("button", {
+          type: "button",
+          className: `um-dd-trigger${open ? " um-dd-open" : ""}`,
+          ref: triggerRef,
+          disabled: disabled === true,
+          "aria-label": label,
+          "aria-haspopup": "listbox",
+          "aria-expanded": open,
+          onClick: () => setOpen((v) => !v),
+          onKeyDown,
+        },
+        h("span", { className: "um-dd-value" }, current?.label ?? ""),
+        h("svg", { className: "um-dd-caret", width: 12, height: 12, viewBox: "0 0 12 12", fill: "none", "aria-hidden": "true", focusable: "false" },
+          h("path", { d: "M3 4.5L6 7.5L9 4.5", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" }))),
+        open ? h("div", { className: "um-dd-panel", role: "listbox", ref: listRef, "aria-label": label, "aria-activedescendant": active >= 0 ? `${listId}-${active}` : undefined },
+          options.map((option, index) => h("div", {
+            key: option.value === "" ? "__all" : option.value,
+            "data-index": index,
+            id: `${listId}-${index}`,
+            role: "option",
+            "aria-selected": option.value === value,
+            className: `um-dd-option${option.value === value ? " um-dd-selected" : ""}${index === active ? " um-dd-active" : ""}`,
+            onPointerEnter: () => setActive(index),
+            onClick: () => choose(index),
+          },
+          h("span", { className: "um-dd-option-label" }, option.label),
+          option.value === value
+            ? h("svg", { className: "um-dd-check", width: 16, height: 16, viewBox: "0 0 16 16", fill: "none", "aria-hidden": "true", focusable: "false" },
+              h("path", { d: "M3.5 8.5L6.5 11.5L12.5 4.5", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" }))
+            : null))) : null);
+    }
+
+    const selectOptions = (label, values, current, onChange, labels) => h("div", { className: "um-filter" },
+      h("span", { className: "um-label" }, label),
+      h(Dropdown, {
+        label,
+        value: current,
+        onChange,
+        options: [{ value: "", label: `全部${label}` }, ...values.map((v) => ({ value: v, label: (labels && labels[v]) || v }))],
+      }));
     /** Parse YYYY-MM-DD as a local calendar instant, or null. */
     const finiteDate = (value) => {
       if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
@@ -273,7 +407,133 @@ window.__ModuleLoader__.load({
           h("button", { className: "um-detail-close", type: "button", onClick: onClose, "aria-label": "关闭详情" }, "×"),
           body));
     }
-    function UsageMeterSection() {
+    // --- entry location, shared between the outer registration and the form ---
+    //
+    // The form lives in a different slot from the registration that acts on it,
+    // so the choice is kept in one module-level cell both of them read. Keeping
+    // it here (rather than in React state) also means a re-mounted form starts
+    // from the saved value instead of a default.
+    const entryState = { location: "settings", token: null, listeners: new Set() };
+
+    const readEntryLocation = () => entryState.location;
+
+    const applyEntryLocation = (next) => {
+      if (next !== "settings" && next !== "sidebar" && next !== "both") return;
+      if (next === entryState.location) return;
+      entryState.location = next;
+      for (const fn of entryState.listeners) { try { fn(next) } catch { /* one listener must not stop the rest */ } }
+    };
+
+    const subscribeEntryLocation = (fn) => {
+      entryState.listeners.add(fn);
+      return () => { entryState.listeners.delete(fn) };
+    };
+
+    // The write route is token-guarded, and the token is handed out by the
+    // pricing GET. Reuse the cached one; fetch when the form is used before the
+    // report has loaded.
+    const ensureToken = async () => {
+      if (typeof entryState.token === "string" && entryState.token !== "") return entryState.token;
+      const response = await fetch(PRICING_PATH, { headers: { accept: "application/json" } });
+      if (!response.ok) throw new Error("无法获取写入令牌");
+      const payload = await response.json();
+      if (typeof payload?.token === "string") entryState.token = payload.token;
+      return entryState.token;
+    };
+
+    // A saved location has to reach the outer registration that decides which
+    // slots exist. The panel cannot unmount itself, so it publishes the setter
+    // here and the outer `apply` picks it up.
+    const locationBridge = { current: null };
+
+    /**
+     * The sidebar row's glyph.
+     *
+     * Drawn inline rather than imported: the icon set ships no chart glyph, and
+     * a missing export would take the whole browser half down. `currentColor`
+     * keeps it in step with the row's selected and hover states, and the same
+     * 1.3 stroke weight the shipped icons use.
+     */
+    function UsageMeterGlyph() {
+      return h("svg", {
+        width: 16, height: 16, viewBox: "0 0 16 16", fill: "none",
+        stroke: "currentColor", strokeWidth: 1.3, strokeLinecap: "round", strokeLinejoin: "round",
+        "aria-hidden": "true", focusable: "false",
+      },
+      h("path", { d: "M2.5 13.5V9.5" }),
+      h("path", { d: "M6.5 13.5V3.5" }),
+      h("path", { d: "M10.5 13.5V7" }),
+      h("path", { d: "M14 13.5V5.5" }));
+    }
+
+    /**
+     * The entry-placement form shown on this bundle's page under Settings →
+     * Plugins, where the archive manager also puts its equivalent control.
+     *
+     * It lives there rather than inside the report because a placement choice is
+     * a preference about the app's chrome, not a reading of the numbers: putting
+     * it under a data table made it look like one more report section and it
+     * scrolled out of sight.
+     */
+    function EntryLocationConfig() {
+      const [location, setLocation] = React.useState(() => readEntryLocation());
+      const [saving, setSaving] = React.useState(false);
+      const [error, setError] = React.useState(null);
+      React.useEffect(() => subscribeEntryLocation(setLocation), []);
+
+      const save = async (next) => {
+        if (next === location || saving) return;
+        setSaving(true);
+        setError(null);
+        try {
+          const response = await fetch(SETTINGS_PATH, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-dsh-usage-dashboard-token": await ensureToken() },
+            body: JSON.stringify({ settings: { entryLocation: next } }),
+          });
+          if (!response.ok) throw new Error("入口展示位置保存失败");
+          const payload = await response.json();
+          applyEntryLocation(payload?.settings?.entryLocation);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "保存失败");
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      // Laid out like the archive manager's own bundle config: a full-width row
+      // with the label on the left and the control on the right. Wrapping this
+      // in `.um-root` centred and padded it, which pushed it out of line with
+      // every other row on the bundle page.
+      return h(React.Fragment, null,
+        h("style", null, css),
+        h("div", { className: "um-config-row" },
+          h("div", { className: "um-config-label" },
+            h("span", { className: "um-config-title" }, "入口展示位置"),
+            h("span", { className: "um-config-desc" }, "选择用量统计入口的展示位置（至少保留一处，防止无法打开面板）。"),
+            error ? h("span", { className: "um-config-desc", role: "alert", style: { color: "var(--dsw-alias-state-error-primary,#bd4747)" } }, error) : null),
+          h("div", { className: "um-segment", role: "group", "aria-label": "入口展示位置" },
+            ENTRY_LOCATIONS.map(([value, text]) => h("button", {
+              key: value,
+              type: "button",
+              className: location === value ? "active" : "",
+              "aria-pressed": location === value,
+              disabled: saving,
+              onClick: () => void save(value),
+            }, text)))));
+    }
+
+    /**
+     * The report itself.
+     *
+     * `mode` picks the container, because the two mounts have different hosts:
+     * the settings page supplies padding and a background of its own, while the
+     * main region is a bare flex column with no scroll container. Styling the
+     * panel root for either one broke the other — a background and 24px padding
+     * tuned for Settings painted over the main region.
+     */
+    function UsageMeterSection(props) {
+      const mode = props?.mode === "main" ? "main" : "settings";
       const [state, setState] = React.useState({ loading: true, saving: false, error: null, data: null, prices: [], priceToken: null });
       const [filters, setFilters] = React.useState({ days: "30", start: "", end: "", provider: "", model: "" });
       const [metric, setMetric] = React.useState("tokens"), [tab, setTab] = React.useState("requests"), [detailKind, setDetailKind] = React.useState(null), [sortDesc, setSortDesc] = React.useState(true);
@@ -285,6 +545,10 @@ window.__ModuleLoader__.load({
       React.useEffect(() => { if (customDateIncomplete) { abortRef.current?.abort(); setState((s) => ({ ...s, loading: false })); return; } void load(!state.priceToken); }, [query, customDateIncomplete]);
       React.useEffect(() => { if (!detailKind || Modal !== null) return undefined; const onKeyDown = (event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); setDetailKind(null); } }; document.addEventListener("keydown", onKeyDown, true); return () => document.removeEventListener("keydown", onKeyDown, true); }, [detailKind]);
       const data = state.data, totals = data?.totals || {}, providers = [...new Set((data?.providers || []).map((x) => x.provider || "unknown").concat(filters.provider || []))], models = [...new Set((data?.models || []).map((x) => x.modelId || "unknown").concat(filters.model || []))];
+      // A baseline scan in progress has no rows yet, so its totals are zero for
+      // a reason that is not "you used nothing". Withholding the report until it
+      // finishes is the difference between "still counting" and "broken".
+      const scanIncomplete = data?.scan?.done === false;
       // Route id -> shown name. The option VALUE stays the route id because
       // that is what the backend filters and groups on.
       const modelLabels = Object.fromEntries((data?.models || [])
@@ -307,16 +571,37 @@ window.__ModuleLoader__.load({
             ? h(React.Fragment, null, h("span", { className: "um-ellip" }, modelLabel(r)), r.provider ? h("span", { className: "um-cell-sub" }, r.provider) : null)
             : h("span", { className: "um-ellip" }, r.provider || "unknown")), h("td", { className: "um-num" }, num(r.calls)), h("td", { className: "um-num" }, num(r.realTokens ?? tokens(r))), h("td", { className: "um-num" }, displayCost(r.cost))))));
       const card = (kind, label, value) => h("button", { className: "um-card", type: "button", onClick: () => setDetailKind(kind), "aria-label": `${label}，查看详情` }, h("span", { className: "um-card-label" }, label), h("span", { className: "um-value" }, value));
-      return h("div", { className: "um-root" }, h("style", null, css), h("header", { className: "um-head" }, h("div", null, h("div", { className: "um-title" }, "用量统计"), h("div", { className: "um-muted" }, data?.scope ? `${data.scope.start} 至 ${data.scope.end}` : "模型使用、缓存效率与成本概览", data?.generatedAt ? h("span", { className: "um-stamp", title: `抓取于 ${stampParts(data.generatedAt).date} ${stampParts(data.generatedAt).time}` }, ` · 数据更新于 ${stampParts(data.generatedAt).time}`) : null), data?.scan?.done === false ? h("div", { className: "um-scan" }, `正在扫描历史会话 ${data.scan.loaded || 0}/${data.scan.total || 0}`) : null), h("div", { className: "um-actions" }, h("button", { className: "um-button", type: "button", onClick: () => void load(false), disabled: state.loading || customDateIncomplete }, state.loading ? "刷新中…" : "刷新"))),
+      const body = h("div", { className: "um-root" }, h("style", null, css), h("header", { className: "um-head" }, h("div", null, h("div", { className: "um-title" }, "用量统计"), h("div", { className: "um-muted" }, data?.scope ? `${data.scope.start} 至 ${data.scope.end}` : "模型使用、缓存效率与成本概览", data?.generatedAt ? h("span", { className: "um-stamp", title: `抓取于 ${stampParts(data.generatedAt).date} ${stampParts(data.generatedAt).time}` }, ` · 数据更新于 ${stampParts(data.generatedAt).time}`) : null), data?.scan?.done === false ? h("div", { className: "um-scan" }, `正在扫描历史会话 ${data.scan.loaded || 0}/${data.scan.total || 0}`) : null), h("div", { className: "um-actions" }, h("button", { className: "um-button", type: "button", onClick: () => void load(false), disabled: state.loading || customDateIncomplete }, state.loading ? "刷新中…" : "刷新"))),
         h("div", { className: "um-content" },
-          h("div", { className: "um-filters" }, selectOptions("供应商", providers, filters.provider, (v) => setFilters((f) => ({ ...f, provider: v, model: "" }))), selectOptions("模型", models, filters.model, (v) => update("model", v), modelLabels), h("div", { className: "um-filter" }, h("span", { className: "um-label" }, "时间范围"), h("select", { className: "um-select", value: filters.days === "" ? "custom" : filters.days, onChange: (e) => setFilters((f) => ({ ...f, days: e.target.value === "custom" ? "" : e.target.value, start: e.target.value === "custom" ? f.start : "", end: e.target.value === "custom" ? f.end : "" })) }, h("option", { value: "today" }, "今天"), h("option", { value: "7" }, "近 7 天"), h("option", { value: "30" }, "近 30 天"), h("option", { value: "90" }, "近 90 天"), h("option", { value: "all" }, "全部时间"), h("option", { value: "custom" }, "自定义区间"))), filters.days === "" ? h("div", { className: "um-filter" }, h("span", { className: "um-label" }, "开始"), h("input", { className: "um-input", type: "date", value: filters.start, "aria-invalid": !filters.start || undefined, onChange: (e) => setFilters((f) => ({ ...f, start: e.target.value, days: "" })) })) : null, filters.days === "" ? h("div", { className: "um-filter" }, h("span", { className: "um-label" }, "结束"), h("input", { className: "um-input", type: "date", value: filters.end, "aria-invalid": !filters.end || undefined, onChange: (e) => setFilters((f) => ({ ...f, end: e.target.value, days: "" })) })) : null),
+          h("div", { className: "um-filters" }, selectOptions("供应商", providers, filters.provider, (v) => setFilters((f) => ({ ...f, provider: v, model: "" }))), selectOptions("模型", models, filters.model, (v) => update("model", v), modelLabels), h("div", { className: "um-filter" },
+        h("span", { className: "um-label" }, "时间范围"),
+        h(Dropdown, {
+          label: "时间范围",
+          value: filters.days === "" ? "custom" : filters.days,
+          onChange: (v) => setFilters((f) => ({ ...f, days: v === "custom" ? "" : v, start: v === "custom" ? f.start : "", end: v === "custom" ? f.end : "" })),
+          options: [
+            { value: "today", label: "今天" },
+            { value: "7", label: "近 7 天" },
+            { value: "30", label: "近 30 天" },
+            { value: "90", label: "近 90 天" },
+            { value: "all", label: "全部时间" },
+            { value: "custom", label: "自定义区间" },
+          ],
+        })), filters.days === "" ? h("div", { className: "um-filter" }, h("span", { className: "um-label" }, "开始"), h("input", { className: "um-input", type: "date", value: filters.start, "aria-invalid": !filters.start || undefined, onChange: (e) => setFilters((f) => ({ ...f, start: e.target.value, days: "" })) })) : null, filters.days === "" ? h("div", { className: "um-filter" }, h("span", { className: "um-label" }, "结束"), h("input", { className: "um-input", type: "date", value: filters.end, "aria-invalid": !filters.end || undefined, onChange: (e) => setFilters((f) => ({ ...f, end: e.target.value, days: "" })) })) : null),
           dateValidation ? h("div", { className: "um-validation", role: "status" }, dateValidation) : null,
           state.error && data ? h("div", { className: "um-error", role: "alert" }, state.error) : null,
-          state.loading && !data ? h("div", { className: "um-loading", role: "status" }, "正在加载用量统计…") : state.error && !data ? h("div", { className: "um-error", role: "alert" }, h("p", null, state.error), h("button", { className: "um-button", type: "button", onClick: () => void load(true) }, "重试")) : h(React.Fragment, null,
+          scanIncomplete ? h("div", { className: "um-loading", role: "status" }, data.scan.total > 0 ? `正在扫描历史会话 ${data.scan.loaded || 0}/${data.scan.total}…` : "正在扫描历史会话…")
+            : state.loading && !data ? h("div", { className: "um-loading", role: "status" }, "正在加载用量统计…") : state.error && !data ? h("div", { className: "um-error", role: "alert" }, h("p", null, state.error), h("button", { className: "um-button", type: "button", onClick: () => void load(true) }, "重试")) : h(React.Fragment, null,
           h("div", { className: "um-metrics" }, card("tokens", "消耗token", compactNum(totals.realTokens)), card("requests", "总请求数", num(totals.calls)), card("cache", "缓存命中率", percentage(totals.hitRate))),
           h("section", { className: "um-panel", "aria-labelledby": "um-trend-title" }, h("div", { className: "um-chart-head" }, h("div", { className: "um-panel-title", id: "um-trend-title" }, data?.granularity === "hour" ? "使用趋势 · 按小时" : "使用趋势 · 按天"), h("div", { className: "um-segment", role: "group", "aria-label": "趋势指标" }, [["tokens", "Tokens"], ["requests", "请求"]].map(([key, label]) => h("button", { key, type: "button", className: metric === key ? "active" : "", onClick: () => setMetric(key), "aria-pressed": metric === key }, label)))), h(Chart, { days: data?.days, hours: data?.hours, granularity: data?.granularity, metric, scope: data?.scope })),
           h("section", { className: "um-panel" }, h("nav", { className: "um-tabs", "aria-label": "用量明细" }, [["requests", "请求"], ["providers", "供应商"], ["models", "模型"], ["pricing", "定价"]].map(([key, label]) => h("button", { key, className: `um-tab${tab === key ? " active" : ""}`, type: "button", onClick: () => setTab(key), "aria-selected": tab === key, role: "tab" }, label))), tab === "pricing" ? h(PricingEditor, { prices: state.prices, setPrices: (prices) => setState((s) => ({ ...s, prices })), saving: state.saving, onSave: savePrices }) : rows?.length ? h("div", { className: "um-table-wrap" }, table) : h("div", { className: "um-empty" }, "当前筛选暂无数据")),
           detailKind ? h(Detail, { kind: detailKind, totals, scope: data?.scope, onClose: () => setDetailKind(null) }) : null)));
+      // The main region has no scroll container of its own, so the panel brings
+      // one; in Settings the host already pads and scrolls, so it only needs the
+      // reading-width inner column.
+      return mode === "main"
+        ? h("div", { className: "um-shell-main" }, h("div", { className: "um-shell" }, h("div", { className: "um-inner" }, body)))
+        : h("div", { className: "um-shell" }, h("div", { className: "um-inner" }, body));
     }
     // The host owns the UI language; `navigator.language` does not follow it.
     // The desktop shell reports en-US while the settings page renders Chinese,
@@ -343,15 +628,93 @@ window.__ModuleLoader__.load({
         t = locale.bind(NS);
       }
       const translated = typeof t === "function";
-      ctx.slots.inject("settings.section", () => ctx.slots.register({
-        name: "settings.section",
-        id: "dsh-usage-dashboard",
-        order: 65,
-        label: translated ? () => t("nav") : () => DICTIONARIES.zh.nav,
+      // Where the entry lives, read once at mount and re-read when the panel
+      // saves a new choice. Both placements share one id so the sidebar row
+      // and the main panel a row opens are the same feature.
+      const label = translated ? () => t("nav") : () => DICTIONARIES.zh.nav;
+      let mounted = { settings: null, row: null, main: null, config: null };
+
+      const unmount = (key) => {
+        const off = mounted[key];
+        mounted[key] = null;
+        if (typeof off === "function") { try { off() } catch { /* already gone */ } }
+      };
+
+      // A slot registration is only replaced when the wanted set changes, so
+      // saving a location does not tear down and rebuild the panel the user is
+      // reading.
+      const sync = () => {
+        const location = readEntryLocation();
+        const wantSettings = location === "settings" || location === "both";
+        const wantSidebar = location === "sidebar" || location === "both";
+
+        if (wantSettings && mounted.settings === null) {
+          mounted.settings = ctx.slots.inject("settings.section", () => ctx.slots.register({
+            name: "settings.section",
+            id: "dsh-usage-dashboard",
+            order: 65,
+            label,
+            ...(translated ? { locale: NS } : {}),
+            inject: () => (translated ? { t } : {}),
+          }, UsageMeterSection));
+        } else if (!wantSettings) unmount("settings");
+
+        if (wantSidebar && mounted.row === null) {
+          mounted.row = ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({
+            name: "sidebar.panellist",
+            id: "dsh-usage-dashboard",
+            order: 66,
+            label,
+            ...(translated ? { locale: NS } : {}),
+          }, UsageMeterGlyph));
+        } else if (!wantSidebar) unmount("row");
+
+        if (wantSidebar && mounted.main === null) {
+          mounted.main = ctx.slots.inject("main", () => ctx.slots.register({
+            name: "main",
+            key: "dsh-usage-dashboard",
+            ...(translated ? { locale: NS } : {}),
+            inject: () => (translated ? { t } : {}),
+          }, (props) => h(UsageMeterSection, { ...props, mode: "main" })));
+        } else if (!wantSidebar) unmount("main");
+      };
+
+      // The placement form always lives on this bundle's page, whatever the
+      // chosen location is — otherwise choosing "仅侧栏" would remove the only
+      // control that can move it back.
+      mounted.config = ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({
+        name: "plugins.bundle.config",
+        key: "@sixzjd/dsh-usage-dashboard",
         ...(translated ? { locale: NS } : {}),
-        inject: () => (translated ? { t } : {}),
-      }, UsageMeterSection));
+      }, EntryLocationConfig));
+
+      subscribeEntryLocation(sync);
+      if (typeof ctx.effect === "function") {
+        ctx.effect(() => () => {
+          entryState.listeners.clear();
+          for (const key of Object.keys(mounted)) unmount(key);
+        }, "dsh-usage-dashboard: entry sync");
+      }
+
+      // Wait for the saved location before the FIRST mount. Drawing with the
+      // default and correcting afterwards leaves a slot registered that the
+      // saved location never asked for: `sync()` only adds and removes against
+      // what it already mounted, and a location read a tick later cannot undo
+      // the default's registration without a teardown the caller does not do.
+      let synced = false;
+      const mountOnce = () => { if (synced) return; synced = true; sync() };
+      void fetch(SETTINGS_PATH, { headers: { accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body) => {
+          const saved = body?.settings?.entryLocation;
+          if (saved === "settings" || saved === "sidebar" || saved === "both") {
+            entryState.location = saved;
+          }
+        })
+        .catch(() => {})
+        .then(mountOnce, mountOnce)
     }
+
     return { inject, apply };
   },
 });

@@ -120,25 +120,37 @@ npm run check
 ## Model display names
 
 Some providers expose models under opaque **route keys** rather than real model
-names. Qoder does exactly this: the durable log records
-`{provider:"qoder", model:"qfmodel"}`, while the model actually behind that
-route is `Qwen3.8-Flash`. The route key is handed back to the upstream verbatim
-and **cannot** be replaced at the source, so the real name only exists in that
-plugin's own model-discovery cache.
+names. The durable log then records a key such as `{provider:"…", model:"qfmodel"}`
+while the model actually behind that route is `Qwen3.8-Flash`. The key is handed
+back to the upstream verbatim and **cannot** be replaced at the source, so the
+real name only exists in the owning provider plugin's model-discovery cache.
 
-The panel reads that cache and shows the real model name.
+The panel reads those caches and shows the real model name.
 
-Only models whose logged modelId **is itself an alias** need this step. Most providers
-return real model names (`openai/gpt-oss-120b`, `minimaxai/minimax-m3`,
-`deepseek-v4-flash-free`, …); the alias table has no entry for them, the panel shows
-those verbatim, and no other plugin is required. Someone without the qoder plugin will
-never see `qfmodel`, because that route key cannot appear in their logs — resolving
-fewer aliases changes nothing on screen.
+**Nothing here is specific to one plugin.** No published seam expresses "who is
+behind this route key", so the only source is the model table a provider plugin
+discovered for itself. Those plugins disagree on where they keep it, but agree on
+one fact: a catalog is JSON holding model rows shaped `{id, name}`. The scan is
+therefore scoped by **directory shape**, not by plugin name:
+
+- `<profile>/.<any plugin>/state/<file>`
+- `<profile>/.<any plugin>/<file>`
+
+Only dot-prefixed plugin state directories are searched (ordinary listing skips
+them, and the walk never enters `node_modules`), and a file is used only when it
+passes the structural check, so widening the scan cannot introduce a wrong name.
+Verified against three provider plugins in a live profile: 97 aliases.
+
+Only models whose logged modelId **is itself an alias** need this step. Most
+providers return real model names (`openai/gpt-oss-120b`, `minimaxai/minimax-m3`, …);
+the alias table has no entry for them and the panel shows those verbatim. A machine
+without a given provider plugin never sees that plugin's route keys, because those
+calls cannot appear in its logs.
 
 Matching is **exact on the whole id** (case-insensitive); it does not match the trailing
-segment after a namespace. The alias cache carries no provider field, so letting
-`vendor/dmodel` hit Qoder's `dmodel` would label another vendor's model with a Qoder
-name — a wrong label on screen is worse than no label.
+segment after a namespace. The alias table carries no provider field, so letting
+`vendor/foo` hit another vendor's `foo` would put a wrong name on screen — worse
+than no name. Two accounts disagreeing on the same key at equal freshness drops it.
 
 **Display only.** Grouping, counting, filtering and pricing all keep using the
 route id, so:
@@ -164,27 +176,30 @@ route id, so:
 
 ### One read outside those seams
 
-This plugin does **not** read `$DSH_HOME/sessions` (every session arrives
-through `ctx.sessionQuery`), but to resolve the model names above it does read
-`dsh-qoder-connect`'s own discovery cache:
+This plugin does **not** read `$DSH_HOME/sessions` (every session arrives through
+`ctx.sessionQuery`), but to resolve the model names above it does read provider
+plugins' own model-discovery caches:
 
 ```
-$DSH_HOME/profiles/*/.dsh-qoder-connect/state/*-catalog.json
+$DSH_HOME/profiles/<profile>/.<any provider plugin>/state/*-catalog.json
+$DSH_HOME/profiles/<profile>/.<any provider plugin>/*-catalog.json
 ```
 
-That is **another plugin's private file, not a published contract** — the path,
-the JSON shape and the per-account keying can all change with its releases. I
-know this contradicts the earlier "public seams only" claim in this repository,
-and this section is the corrected statement rather than a silent edit. The
-tradeoff: without it the panel can only ever show meaningless route keys.
+That is **another plugin's private file, not a published contract** — paths, JSON
+shape and per-account layout can change with their releases. The tradeoff:
+without it the panel can only ever show meaningless route keys.
 
-The read is therefore written to fail closed:
+Discovery is scoped by directory shape rather than by plugin name: only
+dot-prefixed plugin state directories are searched, and only files ending in
+`-catalog.json`. A file is used only when its contents pass the structural check,
+which accepts the two known layouts — a top-level `{models:[…]}`, or per-account
+`{entries:{…models:[…]}}`. Probe and heartbeat JSON sitting beside them (they
+carry a `pid` and similar) never qualify.
 
-- only files named `*-catalog.json` matching `{version:1, entries:{…models:[…]}}`
-  are accepted; `.qoder-probe.json` and `.qoder-host-heartbeat.json` (which
-  carries a `pid`) in the same directory are excluded
-- the cache is keyed by `pat:<hash>` and **only `{id, name}` is extracted**, so no
-  account identifier can reach a response (a test pins this down)
+The read fails closed:
+
+- **only `{id, name}` is extracted** from each model row, so no per-account key
+  (such as `pat:<hash>`) can reach a response (a test pins this down)
 - any failure falls back to the route key: no throw, no guessing, no effect on
   the statistics
 - if upstream reshapes the file, the worst case is names reverting to route keys;
@@ -200,10 +215,10 @@ The read is therefore written to fail closed:
 ## Known limitations
 
 - **Cost is an estimate** from the built-in or manual price table, not a provider invoice. Cache read/write and reasoning follow whichever buckets the upstream reports.
-- **Qoder routes bill in credits, not tokens** — its cache carries a per-model `billing.credits` multiplier such as `x0.5`. Applying a models.dev USD rate to such a route yields an "equivalent API price", **not what you actually paid**, so this plugin resolves names only and never auto-prices a route key.
+- **Quota-billed routes: token prices are not what you paid.** Some providers bill in credits or requests rather than tokens (their model table carries a multiplier such as `x0.5`). Applying a public USD rate to such a route yields an "equivalent API price", so this plugin resolves names only and **never** auto-prices such a route — enter your real rate on the Pricing tab when you need it.
 - An interrupted upstream request may carry only `assistant/chunk` usage with no final `assistant/message`; the chunk usage is kept. If the upstream reports no usage event at all, tokens cannot be recovered precisely from reply content.
 - Sessions lacking `request/header` / `request/context` show their model as `unknown`; the plugin never infers a model from a provider name.
-- Model display names depend on `dsh-qoder-connect`'s private cache format (see above) and need following if it changes.
+- Model display names depend on provider plugins' private cache formats (see above). That is **another plugin's internal implementation, not a published contract** and needs following if it changes; the read fails closed, so the worst case is a name reverting to its route key, never a wrong total.
 - The panel body is Chinese-only; only the settings nav label is localized.
 - Every session the host lists is counted, not just registered workspaces.
 

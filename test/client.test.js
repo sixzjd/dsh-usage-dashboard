@@ -155,8 +155,13 @@ test('detail tables are clamped inside their panel at every width', async () => 
     'the scroll container must not be mobile-only - that was the bug')
   assert.doesNotMatch(mobile, /\.um-table\{[^}]*overflow/,
     'the table itself must never carry the scroll rule')
-  assert.match(source, /\.um-root\{[^}]*margin:0 auto;min-width:0\}/,
-    'the root must be allowed to shrink inside the settings pane')
+  assert.match(source, /\.um-root\{[^}]*min-width:0/,
+    'the root must be allowed to shrink inside its pane')
+  // The panel mounts in two hosts with different chrome, so the reading-width
+  // column lives on a wrapper the panel picks per mount; styling the root for
+  // either one painted over the other.
+  assert.match(source, /\.um-inner\{[^}]*margin:0 auto;min-width:0\}/,
+    'the reading column centres itself without constraining the root')
   assert.match(source, /\.um-content\{position:relative;min-width:0\}/,
     'the content column must be allowed to shrink')
   assert.match(source, /\.um-panel\{padding:16px;margin-bottom:16px;min-width:0\}/,
@@ -230,9 +235,10 @@ test('the range select offers today and all time in the requested order', async 
   )
   const from = source.indexOf('"时间范围"')
   const to = source.indexOf('"自定义区间"', from)
-  assert.ok(from > 0 && to > from, 'the range select is present')
-  const values = [...source.slice(from, to + 10)
-    .matchAll(/h\("option", \{ value: "([^"]+)" \}, "([^"]+)"\)/g)]
+  assert.ok(from > 0 && to > from, 'the range dropdown is present')
+  // The dropdown takes its rows as data now, so read the option literals.
+  const values = [...source.slice(from, to + 30)
+    .matchAll(/\{ value: "([a-z0-9]+)", label: "([^"]+)" \}/g)]
     .map((match) => [match[1], match[2]])
   assert.deepEqual(values, [
     ['today', '今天'],
@@ -395,16 +401,27 @@ test('the settings row follows the host locale, not navigator.language', async (
   // loads silently and the settings entry never appears.
   assert.equal(loaded.id, '@sixzjd/dsh-usage-dashboard')
 
-  const apply = (locale) => {
-    let options = null
-    const ctx = { slots: { inject: (name, fn) => fn(), register: (opts) => { options = opts; return {} } } }
+  // The entry waits for the saved location before it mounts, so the mock has to
+  // answer that read and let the microtask queue drain.
+  const apply = async (locale, savedLocation = 'settings') => {
+    const registered = []
+    const ctx = {
+      slots: { inject: (name, fn) => fn(), register: (opts) => { registered.push(opts); return {} } },
+    }
+    const realFetch = globalThis.fetch
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ settings: { entryLocation: savedLocation } }) })
     if (locale) { ctx.locale = locale; ctx.effect = (fn) => fn() }
-    loaded.mod.apply(ctx)
-    return options
+    try {
+      loaded.mod.apply(ctx)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    } finally {
+      globalThis.fetch = realFetch
+    }
+    return registered.find((opts) => opts.name === 'settings.section') ?? null
   }
 
   const dictionaries = []
-  const translated = apply({
+  const translated = await apply({
     register: (ns, dict) => dictionaries.push([ns, dict]),
     bind: (ns) => (key) => `${ns}:${key}`,
   })
@@ -417,7 +434,7 @@ test('the settings row follows the host locale, not navigator.language', async (
 
   // A host without the service must still get a row, and that row has to agree
   // with the Chinese body underneath it rather than guessing from the browser.
-  const fallback = apply(null)
+  const fallback = await apply(null)
   assert.equal(fallback.label(), '用量统计', 'no locale service falls back to the panel language')
   assert.equal(fallback.locale, undefined, 'no namespace is advertised when nothing is bound')
   // Comments still name the old input (they explain why it was wrong), so the
@@ -444,4 +461,75 @@ test('every service the client reads is declared in inject', async () => {
       assert.ok(declared.includes(name), `${service} is read but "${name}" is not in inject (${declared.join(', ')})`)
     }
   }
+})
+
+test('dropdowns are drawn by the panel, not by the OS', async () => {
+  const source = await readFile(clientPath, 'utf8')
+
+  // A native <select> popup is painted by the OS, so its rows ignore our theme
+  // and on Windows a dark theme's light text lands on a white popup. The panel
+  // therefore ships its own listbox: one implementation, identical on every
+  // platform, styled with the same tokens as the rest of the panel.
+  assert.match(source, /function Dropdown/,
+    'the panel owns a dropdown component')
+  assert.match(source, /role: "listbox"/,
+    'the popup is a real listbox, not a native select')
+  assert.match(source, /role: "option"/,
+    'each row carries the option role')
+
+  // Native selects must be gone from the filter bar; the pricing tab's inputs
+  // stay native because they are plain text fields.
+  const selects = source.match(/h\("select"/g) ?? []
+  assert.equal(selects.length, 0, 'no native select remains')
+})
+
+test('the dropdown is keyboard reachable and announces its state', async () => {
+  const source = await readFile(clientPath, 'utf8')
+  // A hand-rolled popup has to carry the affordances the native one gave for
+  // free: an expanded state, a keyboard path, and a dismiss route.
+  assert.match(source, /aria-expanded/,
+    'the trigger reports whether the list is open')
+  assert.match(source, /aria-haspopup/,
+    'the trigger announces that it opens a list')
+  assert.match(source, /onKeyDown/,
+    'the list is operable from the keyboard')
+  assert.match(source, /Escape/,
+    'Escape closes the list')
+})
+
+test('a scan in progress reads as loading, never as zero usage', async () => {
+  const source = await readFile(clientPath, 'utf8')
+
+  // While the baseline scan is running the snapshot is genuinely empty, so
+  // rendering it shows "0 tokens / 0 requests / —" — which reads as broken
+  // data rather than as work in progress. The panel already knows the scan
+  // state from the same payload, so the zeros must be withheld until it
+  // reports done.
+  const scanGate = source.indexOf('data?.scan?.done === false')
+  assert.ok(scanGate > 0, 'the panel reads the scan state from the payload')
+
+  // The metric cards must not render from an unfinished scan: their container
+  // has to be behind the same gate.
+  const metricsAt = source.indexOf('"um-metrics"')
+  assert.ok(metricsAt > scanGate,
+    'the metric cards render only after the scan gate')
+
+  // And the gate has to cover the whole report body, not just a banner next to
+  // live-looking zeros.
+  assert.match(source, /scanIncomplete\s*\?/,
+    'one flag decides between loading and the report')
+})
+
+test('the list handles keys once, not once per focused element', async () => {
+  const source = await readFile(clientPath, 'utf8')
+  const start = source.indexOf('function Dropdown(')
+  const body = source.slice(start, source.indexOf('const selectOptions =', start))
+
+  // The trigger and the open list both receive keydown. Binding the same
+  // handler to both means Escape or Enter fires twice — closing or selecting
+  // in pairs. It must be bound once, on whichever element holds focus.
+  const bindings = (body.match(/onKeyDown/g) ?? []).length
+  // one declaration plus one attachment
+  assert.ok(bindings <= 2,
+    `the key handler is declared once and attached once (found ${bindings} mentions)`)
 })

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.8
+
+### Fixed — short-range bars no longer pack to the left or turn into slabs
+
+The chart gave every bar slot a `max-width`, so a 7-day range squeezed seven
+16px bars into the left edge of the plot and left the rest empty. Removing that
+cap alone made each bar fill its whole ~127px slot, which looked like a block
+of colour.
+
+The grid now does both jobs: slots and x-axis ticks flex to divide the entire
+plot evenly, while the bar itself is capped at 48px and centred in its slot.
+Long ranges keep narrow bars so 30/90/365-day charts remain readable.
+
 ## 0.6.6
 
 ### Fixed — the capped row list kept the OLDEST rows

@@ -1,5 +1,6 @@
 # dsh-usage-dashboard
 
+[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com) [![npm version](https://img.shields.io/npm/v/@sixzjd/dsh-usage-dashboard)](https://www.npmjs.com/package/@sixzjd/dsh-usage-dashboard) [![npm downloads](https://img.shields.io/npm/dm/@sixzjd/dsh-usage-dashboard)](https://www.npmjs.com/package/@sixzjd/dsh-usage-dashboard) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 DeepSeek Harness 的本地用量统计插件：在**设置 → 用量统计**里查看 token 消耗、请求数、缓存命中率与按天趋势。
 
 数据全部来自本机会话日志，不联网、不上传、不需要任何 API Key。
